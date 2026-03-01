@@ -3,17 +3,25 @@ const fs = require('fs');
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const CHAT_ID = process.env.CHAT_ID;
-const TIKTOK_USERS = process.env.TIKTOK_USERS ? process.env.TIKTOK_USERS.split(',') : [];
+const RAW_USERS = process.env.TIKTOK_USERS;
 
-async function checkLive() {
-  if (TIKTOK_USERS.length === 0) return console.log("Daftar user kosong!");
-
-  let lastStatus = {};
-  if (fs.existsSync('status.json')) {
-    lastStatus = JSON.parse(fs.readFileSync('status.json', 'utf8'));
+async function debugCheck() {
+  console.log("=== DEBUG START ===");
+  
+  if (!BOT_TOKEN) console.log("❌ BOT_TOKEN tidak terbaca!");
+  if (!CHAT_ID) console.log("❌ CHAT_ID tidak terbaca!");
+  
+  if (!RAW_USERS) {
+    console.log("❌ TIKTOK_USERS tidak terbaca! Pastikan sudah input di Secrets.");
+    return;
   }
 
-  let currentStatus = { ...lastStatus };
+  const TIKTOK_USERS = RAW_USERS.split(',');
+  console.log(`✅ Berhasil memuat ${TIKTOK_USERS.length} user.`);
+
+  // TEST TELEGRAM LANGSUNG
+  console.log("Testing Telegram...");
+  await sendTelegram("Test Bot: Mencoba koneksi...");
 
   for (const username of TIKTOK_USERS) {
     const user = username.trim();
@@ -21,26 +29,15 @@ async function checkLive() {
     
     try {
       const response = await axios.get(url, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/110.0.0.0' },
-        timeout: 10000
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0' }
       });
-      
-      const html = response.data;
-      const isLiveNow = html.includes('"status":2') || html.includes('"room_status":2');
-
-      if (isLiveNow) {
-        if (!lastStatus[user]) { // Jika sebelumnya tidak live
-          await sendTelegram(`🔴 ${user} SEDANG LIVE!\nhttps://www.tiktok.com/@${user}/live`);
-        }
-        currentStatus[user] = true;
-      } else {
-        currentStatus[user] = false;
-      }
+      const isLive = response.data.includes('"status":2') || response.data.includes('"room_status":2');
+      console.log(`- ${user}: ${isLive ? "🔴 LIVE" : "⚪ Offline"}`);
     } catch (e) {
-      console.log(`Gagal cek ${user}`);
+      console.log(`- ${user}: ❌ Error (${e.message})`);
     }
   }
-  fs.writeFileSync('status.json', JSON.stringify(currentStatus, null, 2));
+  console.log("=== DEBUG END ===");
 }
 
 async function sendTelegram(text) {
@@ -49,7 +46,10 @@ async function sendTelegram(text) {
       chat_id: CHAT_ID,
       text: text
     });
-  } catch (e) { console.log("Gagal kirim tele"); }
+    console.log("✅ Pesan Telegram terkirim!");
+  } catch (e) {
+    console.log("❌ Gagal kirim Telegram: " + e.message);
+  }
 }
 
-checkLive();
+debugCheck();
