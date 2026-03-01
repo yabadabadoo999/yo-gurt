@@ -1,0 +1,29 @@
+name: TikTok Watcher
+
+on:
+  schedule:
+    - cron: '*/5 * * * *' # Jalan tiap 5 menit
+  workflow_dispatch:
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      - run: npm install axios
+      - name: Jalankan Bot
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
+          TIKTOK_USERS: ${{ secrets.TIKTOK_USERS }}
+        run: node bot.js
+      - name: Simpan Memori
+        run: |
+          git config --global user.name "Bot"
+          git config --global user.email "bot@github.com"
+          git add status.json || exit 0
+          git commit -m "update status" || exit 0
+          git push
